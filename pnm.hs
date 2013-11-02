@@ -22,6 +22,7 @@ type Parser = StateT ParseState Maybe
 runParser :: Parser a -> ParseState -> Maybe (a, ParseState)
 runParser = runStateT
 
+
 -- Sample valid PNM
 -- P5
 -- 640 480
@@ -35,7 +36,6 @@ matchHeader prefix = do
     guard (prefix `L8.isPrefixOf` str)
     put $ L8.dropWhile isSpace (L.drop (L.length prefix) str)
 
--- getNatural :: L.ByteString -> Maybe (Int, L.ByteString)
 getNatural :: Parser Int
 getNatural = do
     str <- get
@@ -67,13 +67,15 @@ parseP5 = do
     height  <- getNatural << skipSpace
     maxgrey <- getNatural << skipSpace
     guard (maxgrey < 256)
-    getBytes 1 -- dummy byte?
+    skipSpace
     bitmap <- getBytes (width * height)
     return $ Greymap width height maxgrey bitmap
 
+
+main :: IO ()
 main = do
     contents <- L.readFile "mountain.pnm"
     let s = case runParser parseP5 contents of
-         Just (g, s) -> show g
-         otherwise -> "Parsing error..."
+         Just (g, _) -> show g
+         Nothing -> "Parsing error occured..."
     putStrLn . show $ s
