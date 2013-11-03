@@ -3,6 +3,7 @@ import qualified Data.ByteString.Lazy as L
 import Data.Char (isSpace)
 
 import Control.Monad.State
+import Data.Maybe
 
 data Greymap = Greymap {
     greyWidth  :: Int,
@@ -23,35 +24,29 @@ runParser :: Parser a -> ParseState -> Maybe (a, ParseState)
 runParser = runStateT
 
 
--- Sample valid PNM
+-- Sample of a valid PNM
 -- P5
 -- 640 480
 -- 255
--- BINARY DATA
+-- ...BINARY DATA...
 
 -- matchHeader (L8.pack "P5")
 matchHeader :: L.ByteString -> Parser ()
 matchHeader prefix = do
-    str <- get
-    guard (prefix `L8.isPrefixOf` str)
-    put $ L8.dropWhile isSpace (L.drop (L.length prefix) str)
+    guard . (prefix `L8.isPrefixOf`) =<< get
+    modify $ L.drop (L.length prefix)
 
 getNatural :: Parser Int
 getNatural = do
-    str <- get
-    case L8.readInt str of
-         Nothing -> lift Nothing
-         Just (num, rest)
-            | num <= 0 -> lift Nothing
-            | otherwise -> put rest >> return num
+    num <- StateT L8.readInt
+    guard (num > 0)
+    return num
 
 getBytes :: Int -> Parser L.ByteString
 getBytes n = do
-    str <- get
     let count = fromIntegral n
-        (prefix, postfix) = L.splitAt count str
+    prefix <- state $ L.splitAt count
     guard (L.length prefix == count)
-    put postfix
     return prefix
 
 skipSpace :: Parser ()
@@ -63,9 +58,8 @@ a << b = b >> a
 parseP5 :: Parser Greymap
 parseP5 = do
     matchHeader (L8.pack "P5")
-    width   <- getNatural
-    height  <- getNatural << skipSpace
-    maxgrey <- getNatural << skipSpace
+    [width, height, maxgrey] <- replicateM 3 $
+        getNatural << skipSpace
     guard (maxgrey < 256)
     skipSpace
     bitmap <- getBytes (width * height)
