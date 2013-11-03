@@ -3,7 +3,6 @@ import qualified Data.ByteString.Lazy as L
 import Data.Char (isSpace)
 
 import Control.Monad.State
-import Data.Maybe
 
 data Greymap = Greymap {
     greyWidth  :: Int,
@@ -45,7 +44,7 @@ getNatural = do
 getBytes :: Int -> Parser L.ByteString
 getBytes n = do
     let count = fromIntegral n
-    prefix <- state $ L.splitAt count
+    prefix <- StateT $ Just . L.splitAt count
     guard (L.length prefix == count)
     return prefix
 
